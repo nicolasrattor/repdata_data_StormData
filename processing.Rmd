@@ -1,7 +1,7 @@
 ---
-title: "Storms and other severe weather events"
+title: "The most damaging and economically costly weather events in the United States (1950-2011)"
 author: "Nicolás Ratto"
-date: "25-08-2020"
+date: "26-08-2020"
 output: html_document
 ---
 
@@ -11,12 +11,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Synopsis
 
+This document explores the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. This will try to answer the questions of which types of events are most harmful to population health and of which types of events have the greatest economic consequences. This analysis will include a time perspective to understand if the most harmful and with the greatest economic consequences events have changed in the period 1950-2011 that the database addresses.
+
+# Data processing
+
 
 ```{r warning=FALSE, message = FALSE}
 
 ## Install and load packages
 
-packages = c("tidyverse", "lubridate","ggplot2")
+packages = c("tidyverse", "lubridate","ggplot2","data.table","ggpubr")
 
 ## Now load or install & load all
 package.check <- lapply(
@@ -32,34 +36,123 @@ package.check <- lapply(
 
 
 # Load data
-act<-read.csv("Input/data/activity.csv",header = TRUE,sep=",")
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", 
+              "StormData.csv.bz2", method = "libcurl")
+
+data<-read.csv("StormData.csv.bz2", header = TRUE, sep = ",")
+
+head(data)
+
+```
+
+
+
+```{r warning=FALSE, message = FALSE}
+## Change format variables
+data$BGN_DATE<-mdy_hms(as.character(data$BGN_DATE))
+data$BGN_YEAR<-year(data$BGN_DATE)
+data$END_DATE<-mdy_hms(as.character(data$END_DATE))
+```
+
+
+# Results
+
+```{r warning=FALSE, message = FALSE}
+#* Does the analysis address the question of which types of events are most harmful to population health?
+data %>% group_by(EVTYPE) %>% summarise(FATALITIES=sum(FATALITIES),
+                                        INJURIES=sum(INJURIES),
+                                        PROPDMG=sum(PROPDMG),
+                                        CROPDMG=sum(CROPDMG)) %>% arrange(-FATALITIES,
+                                                                          -INJURIES,
+                                                                          -PROPDMG,
+                                                                          -CROPDMG)
+```
+
+
+
+
+```{r warning=FALSE, message = FALSE}
+
+## Agrupate base by event type
+a<-data %>% group_by(EVTYPE) %>% summarise(FATALITIES=sum(FATALITIES),
+                                        INJURIES=sum(INJURIES),
+                                        PROPDMG=sum(PROPDMG),
+                                        CROPDMG=sum(CROPDMG),
+                                        MAG=sum(MAG)) %>% arrange(-FATALITIES)
+
+## Graphs
+
+g1<-a %>% filter(FATALITIES>200) %>% ggplot(aes(x=reorder(EVTYPE,FATALITIES), y=FATALITIES)) +
+  geom_bar(stat="identity", fill="green", colour="black", width=0.8) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
+  theme_bw() +  coord_flip() + 
+  geom_text(aes(label = format(FATALITIES, big.mark = ",", scientific = FALSE)), hjust=-0.1, colour = "black", size=3.0) +
+  labs(title="Fatalities",
+       x="EVTYPE", 
+       y = "FATALITIES")
+
+g2<-a %>% filter(INJURIES>1000) %>% ggplot(aes(x=reorder(EVTYPE,INJURIES), y=INJURIES)) +
+  geom_bar(stat="identity", fill="blue", colour="black", width=0.8) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
+  theme_bw() +  coord_flip() + 
+  geom_text(aes(label = format(INJURIES, big.mark = ",", scientific = FALSE)), hjust=-0.1, colour = "black", size=3.0) +
+  labs(title="Injuries",
+       x="EVTYPE", 
+       y = "INJURIES")
+
+g3<-a %>% filter(PROPDMG>20000) %>% mutate(PROPDMG=PROPDMG/10) %>% 
+  ggplot(aes(x=reorder(EVTYPE,PROPDMG), y=round(PROPDMG))) +
+  geom_bar(stat="identity", fill="purple", colour="black", width=0.8) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
+  theme_bw() +  coord_flip() + 
+  geom_text(aes(label = format(round(PROPDMG), big.mark = ",", scientific = FALSE)), hjust=-0.1, colour = "black", size=3.0) +
+  labs(title="Property damage (divided into 10)",
+       x="EVTYPE", 
+       y = "PROPDMG")
+
+g4<-a %>% filter(CROPDMG>5000) %>% mutate(CROPDMG=CROPDMG/10) %>% 
+  ggplot(aes(x=reorder(EVTYPE,CROPDMG), y=round(CROPDMG))) +
+  geom_bar(stat="identity", fill="red", colour="black", width=0.8) + 
+  scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
+  theme_bw() +  coord_flip() + 
+  geom_text(aes(label = format(round(CROPDMG), big.mark = ",", scientific = FALSE)), hjust=-0.1, 
+            colour = "black", size=3.0) +
+  labs(title="Crop damage (divided into 10)",
+       x="EVTYPE", 
+       y = "CROPDMG")
+
+g5<-ggarrange(g1,g2,g3,g4,ncol = 2,nrow = 2)
+annotate_figure(g5, top=text_grob("The most damaging and economically costly weather events in the United States (1950-2011)"),
+                bottom = text_grob("National Climatic Data Center Storm Events",
+                                       hjust = 1, x = 1, size = 10))
 
 
 ```
 
 
-# Data processing
 
 
-# Results
 
-# Review criteria
 
-* Has either a (1) valid RPubs URL pointing to a data analysis document for this assignment been submitted; or (2) a complete PDF file presenting the data analysis been uploaded?
-* Is the document written in English?
-* Does the analysis include description and justification for any data transformations?
-* Does the document have a title that briefly summarizes the data analysis?
-* Does the document have a synopsis that describes and summarizes the data analysis in less than 10 sentences?
-* Is there a section titled "Data Processing" that describes how the data were loaded into R and processed for analysis?
-* Is there a section titled "Results" where the main results are presented?
-* Is there at least one figure in the document that contains a plot?
-* Are there at most 3 figures in this document?
-* Does the analysis start from the raw data file (i.e. the original .csv.bz2 file)?
-* Does the analysis address the question of which types of events are most harmful to population health?
-* Does the analysis address the question of which types of events have the greatest economic consequences?
-* Do all the results of the analysis (i.e. figures, tables, numerical summaries) appear to be reproducible?
-* Do the figure(s) have descriptive captions (i.e. there is a description near the figure of what is happening in the figure)?
-* As far as you can determine, does it appear that the work submitted for this project is the work of the student who submitted it
+```{r warning=FALSE, message = FALSE}
+data %>% filter(EVTYPE %in% c("TORNADO","EXCESSIVE HEAT","FLASH FLOOD",
+                              "FLOOD","TSTM WIND",
+                              "HAIL")) %>% 
+  group_by(EVTYPE,BGN_YEAR) %>% summarise(FATALITIES=sum(FATALITIES),
+                                          INJURIES=sum(INJURIES),
+                                          PROPDMG=(sum(PROPDMG)/10),
+                                          CROPDMG=sum(CROPDMG)/10) %>% 
+  gather(key = "type", value = "value", -EVTYPE,-BGN_YEAR) %>% 
+  ggplot(aes( x = BGN_YEAR, y =value, fill = type, color = type)) + facet_wrap(~EVTYPE) + 
+  geom_line() + theme_bw() + 
+  labs(title="The most damaging and economically costly weather events in the United States in time (1950-2011)",
+       x="Year",
+       y = "Fatalities, injures, property damage and crop damage",
+       caption = "National Climatic Data Center Storm Events") + 
+  theme(legend.position = "bottom")
+```
+
+
 
 
 
